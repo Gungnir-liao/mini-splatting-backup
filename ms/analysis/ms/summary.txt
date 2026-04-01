@@ -1,0 +1,14 @@
+Model: /root/3dgs-streaming/mini-splatting/ms/eval/flowers/point_cloud/iteration_30000/point_cloud.ply
+Gaussians (N): 573673
+
+σx: min=3.79353e-06, median=0.00726519, mean=0.0305912, max=10.9081
+σy: min=2.64527e-06, median=0.0069585, mean=0.0217065, max=32.9523
+σz: min=3.23592e-06, median=0.00697406, mean=0.0281924, max=13.7798
+σ_geo: min=9.24504e-05, median=0.00580915, mean=0.0177978, max=3.81252
+
+[Shape ratio]
+max/mid: min=1, median=2.29892, mean=3.50689, max=1053.29
+max/min: min=1.00383, median=9.30907, mean=28.0763, max=4645.31
+
+[Opacity]
+opacity: min=0.00376674, median=0.982773, mean=0.833557, max=1

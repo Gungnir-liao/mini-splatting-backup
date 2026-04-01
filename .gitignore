@@ -1,8 +1,18 @@
 *.pyc
+*.pyo
+*.pyd
+__pycache__/
 .vscode
+.idea/
 *.out
 output
+output/
+outputs/
 build
+dist/
+logs/
+renders/
+*.log
 diff_rasterization/diff_rast.egg-info
 diff_rasterization/dist
 diff_rasterization_ms/diff_gaussian_rasterization_ms.egg-info
@@ -11,3 +21,17 @@ tensorboard_3d
 screenshots
 *.png
 *.jpg
+
+# Local data / model artifacts
+dataset/
+models/
+gs/dataset/
+gs/sags-models/
+gs/test/
+ms/models/
+ms/test/
+ms/eval/
+es/models/
+
+# Generated runtime outputs
+edge_gs_runtime/outputs/

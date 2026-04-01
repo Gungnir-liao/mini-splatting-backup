@@ -206,8 +206,6 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                     torch.cuda.empty_cache()
                     viewpoint_stack = scene.getTrainCameras().copy()
 
-
-
             if iteration == simp_iteration1:
 
                 imp_score = torch.zeros(gaussians._xyz.shape[0]).cuda()
@@ -255,7 +253,6 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 torch.cuda.empty_cache()
                 viewpoint_stack = scene.getTrainCameras().copy()
 
-
             if iteration == args.simp_iteration2:
 
                 imp_score = torch.zeros(gaussians._xyz.shape[0]).cuda()
@@ -294,7 +291,10 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
             if (iteration in checkpoint_iterations):
                 print("\n[ITER {}] Saving Checkpoint".format(iteration))
-                torch.save((gaussians.capture(), iteration), scene.model_path + "/chkpnt" + str(iteration) + ".pth")  
+                torch.save((gaussians.capture(), iteration), scene.model_path + "/chkpnt" + str(iteration) + ".pth")
+            
+            if iteration % 1000 == 0:  # 每100轮打印一次
+                print(f"[ITER {iteration}] Current number of Gaussians: {gaussians.get_xyz.shape[0]}")  
 
     print(gaussians._xyz.shape)
 
@@ -395,7 +395,7 @@ if __name__ == "__main__":
     parser.add_argument('--debug_from', type=int, default=-1)
     parser.add_argument('--detect_anomaly', action='store_true', default=False)
     parser.add_argument("--test_iterations", nargs="+", type=int, default=[7_000, 30_000])
-    parser.add_argument("--save_iterations", nargs="+", type=int, default=[7_000, 30_000])
+    parser.add_argument("--save_iterations", nargs="+", type=int, default=[7_000, 19_999, 30_000])
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[])
     parser.add_argument("--start_checkpoint", type=str, default = None)

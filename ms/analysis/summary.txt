@@ -1,0 +1,15 @@
+Model: /root/3dgs-streaming/mini-splatting/ms/eval/room/point_cloud/iteration_30000/point_cloud.ply
+Gaussians (N): 394764
+
+[Size σ stats]
+σx: min=5.19726e-06, median=0.0101143, mean=0.0186827, max=4.91578
+σy: min=1.64528e-05, median=0.0107407, mean=0.0206177, max=5.06245
+σz: min=3.40915e-06, median=0.0103308, mean=0.0196329, max=6.93768
+σ_geo: min=0.000392639, median=0.00928152, mean=0.0154138, max=2.33059
+
+[Shape ratio]
+max/mid: min=1, median=2.02657, mean=2.90934, max=318.93
+max/min: min=1.00555, median=4.90626, mean=12.5323, max=9281.48
+
+[Opacity]
+opacity: min=0.00251645, median=0.76238, mean=0.659676, max=1

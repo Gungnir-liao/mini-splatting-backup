@@ -1,0 +1,2 @@
+object,render_method,render_SSIM,render_PSNR,render_LPIPS,render_test_method,render_test_SSIM,render_test_PSNR,render_test_LPIPS,SSIMRelChange(test_vs_render),PSNRRelChange(test_vs_render),LPIPSRelChange(test_vs_render)
+garden,ours_30000,0.846960723400116,26.836618423461914,0.14618615806102753,ours_30000,0.8463912606239319,26.782499313354492,0.14609979093074799,-0.0006723603119374639,-0.002016614360776104,-0.0005908023811904668

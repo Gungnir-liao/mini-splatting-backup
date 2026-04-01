@@ -1,0 +1,3 @@
+Model,Num Gaussians,Render AvgTime(ms),Render MaxFPS,Model VRAM(MB),Render MaxVRAM(MB),RenderTest AvgTime(ms),RenderTest MaxFPS,RenderTest MaxVRAM(MB),TimeRelChange(test_vs_render),FPSRelChange(test_vs_render),VRAMRelChange(test_vs_render)
+garden_1920x1080,937163,2.05,495.40,210.93,629.69,1.72,581.60,607.98,-0.1613,0.1740,-0.0345
+garden_3840x2160,937163,3.55,281.20,210.93,883.20,2.41,414.70,814.62,-0.3214,0.4748,-0.0777

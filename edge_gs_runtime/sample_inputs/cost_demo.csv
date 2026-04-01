@@ -1,0 +1,3 @@
+scene,view_index,x,y,z,base_cost_mean,base_cost_std,method,param_a,param_b,param_c,r2
+bicycle,0,0.0,0.0,0.0,0.004,0.0,Polynomial,-0.10,0.90,0.20,1.0
+bicycle,1,1.0,0.0,0.0,0.004,0.0,Polynomial,-0.10,0.90,0.20,1.0
