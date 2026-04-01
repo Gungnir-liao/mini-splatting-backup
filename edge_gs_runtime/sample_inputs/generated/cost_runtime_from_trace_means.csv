@@ -1,0 +1,2 @@
+Model,base_cost_mean,param_a,param_b,param_c,num_trace_rows,source
+bicycle,0.006843420197740114,0.4601628220338983,0.06502482627118644,0.4410700049435028,1416,aggregated_from_systemSimulation_trace

@@ -159,7 +159,7 @@ class GPUWorker:
     # 作用：在 dry_run 模式下伪造一次执行结果，使运行时主循环和调度逻辑可以先独立联调。
     def execute_dry_run(self, task: RenderTask, q: float, now: float) -> Dict[str, Any]:
         actual_duration = self.estimate_dry_run_duration(task, q)
-        frame_path = self.output_dir / f"task_{task.task_id:06d}_dryrun.txt"
+        frame_path = self.output_dir / f"user_{task.user_id:03d}_task_{task.task_id:06d}_dryrun.txt"
         frame_path.write_text(
             (
                 f"dry_run result\n"

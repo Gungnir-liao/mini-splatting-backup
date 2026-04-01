@@ -40,6 +40,38 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--events_path", type=str, default="outputs/logs/events.json", help="Path to save event log JSON.")
 
     parser.add_argument("--dry_run", action="store_true", help="Run without real rendering pipeline.")
+    parser.add_argument(
+        "--render_backend",
+        type=str,
+        default="es",
+        choices=["es"],
+        help="Real-render backend to use when --dry_run is not set.",
+    )
+    parser.add_argument(
+        "--model_root",
+        type=str,
+        default=str(Path(__file__).resolve().parents[2] / "ms" / "eval"),
+        help="Root directory containing per-scene trained models for real rendering.",
+    )
+    parser.add_argument(
+        "--dataset_root",
+        type=str,
+        default=str(Path(__file__).resolve().parents[2] / "gs" / "dataset"),
+        help="Root directory containing per-scene datasets for real rendering.",
+    )
+    parser.add_argument(
+        "--iteration",
+        type=int,
+        default=-1,
+        help="Model iteration to load for real rendering. -1 means latest iteration.",
+    )
+    parser.add_argument(
+        "--camera_split",
+        type=str,
+        default="test",
+        choices=["auto", "test", "train"],
+        help="Which camera split to draw real-render viewpoints from.",
+    )
     parser.add_argument("--planner_interval", type=float, default=1.0, help="Slow-loop planning interval in seconds.")
     parser.add_argument("--idle_step", type=float, default=1e-3, help="Logical time step when no task is executable.")
     parser.add_argument("--history_window", type=float, default=1.0, help="Admission-control history window in seconds.")
@@ -107,10 +139,27 @@ def build_metrics(_: argparse.Namespace) -> MetricsCollector:
 
 # 作用：创建 GPUWorker；当前默认仅用 dry_run 方式联调，后续可在此处接入真实 render_adapter 与 scene_repo。
 def build_gpu_worker(args: argparse.Namespace) -> GPUWorker:
+    render_adapter = None
+    scene_repo = None
+
+    if not args.dry_run:
+        if args.render_backend != "es":
+            raise ValueError(f"Unsupported render backend: {args.render_backend}")
+
+        from worker.es_render_adapter import ESRenderAdapter, ESSceneRepository
+
+        scene_repo = ESSceneRepository(
+            model_root=args.model_root,
+            dataset_root=args.dataset_root,
+            iteration=args.iteration,
+            camera_split=args.camera_split,
+        )
+        render_adapter = ESRenderAdapter(device=args.device)
+
     return GPUWorker(
         device=args.device,
-        render_adapter=None,
-        scene_repo=None,
+        render_adapter=render_adapter,
+        scene_repo=scene_repo,
         output_dir=args.output_dir,
         dry_run=args.dry_run,
         enable_telemetry=True,
