@@ -79,7 +79,7 @@ class StageARuntime:
                 now=self.now,
                 pred_cost=task.pred_cost,
                 g_params=task.g_params,
-                demand_fps=task.extra.get("demand_fps", None),
+                demand_fps=task.demand_fps,
             )
             self.metrics.on_arrival(task)
             ingested.append(task)

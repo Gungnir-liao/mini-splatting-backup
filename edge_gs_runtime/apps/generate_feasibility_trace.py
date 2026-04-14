@@ -227,6 +227,7 @@ def main() -> None:
                     "Model": scene,
                     "R": arrival_ts,
                     "D": arrival_ts + (1.0 / fps),
+                    "fps": fps,
                     "Pred_Cost": pred_cost,
                     "Real_Cost": real_cost,
                     "Param_a": float(params[2]),

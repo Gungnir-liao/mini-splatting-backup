@@ -31,6 +31,7 @@ class RenderTask:
     finish_ts: Optional[float] = None
     actual_duration: Optional[float] = None
     output_path: Optional[str] = None
+    demand_fps: Optional[float] = None
     extra: Dict[str, Any] = field(default_factory=dict)
 
     # 作用：返回任务的松弛时间（deadline 减去当前时刻），可用于调试或调度分析。
@@ -88,5 +89,6 @@ class RenderTask:
             "finish_ts": self.finish_ts,
             "actual_duration": self.actual_duration,
             "output_path": self.output_path,
+            "demand_fps": self.demand_fps,
             "extra": self.extra,
         }

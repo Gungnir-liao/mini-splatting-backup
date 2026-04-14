@@ -127,6 +127,12 @@ class TraceReader:
         scene_id = self._resolve_scene_id(row)
         viewpoint = self._build_viewpoint(row)
 
+        if "fps" in row and pd.notna(row.get("fps")):
+            demand_fps: Optional[float] = float(row["fps"])
+        else:
+            ddl_window = deadline_ts - arrival_ts
+            demand_fps = round(1.0 / ddl_window) if ddl_window > 1e-9 else None
+
         return RenderTask(
             task_id=task_id,
             user_id=user_id,
@@ -136,6 +142,7 @@ class TraceReader:
             viewpoint=viewpoint,
             pred_cost=pred_cost,
             g_params=g_params,
+            demand_fps=demand_fps,
         )
 
     # 作用：重置内部游标，使读取器重新回到 trace 起点。
