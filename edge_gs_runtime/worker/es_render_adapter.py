@@ -173,7 +173,9 @@ class ESRenderAdapter:
             if torch.cuda.is_available():
                 torch.cuda.synchronize()
             actual_duration = time.perf_counter() - t0
-            torchvision.utils.save_image(render_pkg["render"], str(frame_path))
+
+        # 实际系统中渲染结果应交给压缩编码推流服务，此处仅为 debug 落盘，不计入渲染耗时。
+        torchvision.utils.save_image(render_pkg["render"], str(frame_path))
 
         return {
             "actual_duration": float(actual_duration),

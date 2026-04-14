@@ -31,6 +31,7 @@ class StageARuntime:
         metrics,
         idle_step: float = 1e-3,
         planner_interval: float = 1.0,
+        progress_interval: int = 100,
     ) -> None:
         self.trace_reader = trace_reader
         self.session_registry = session_registry
@@ -42,10 +43,12 @@ class StageARuntime:
 
         self.idle_step = idle_step
         self.planner_interval = planner_interval
+        self.progress_interval = int(progress_interval)
 
         self.ready_queue: List[RenderTask] = []
         self.now: float = 0.0
         self.last_plan_ts: float = float("-inf")
+        self._last_progress_resolved: int = 0
 
     # 作用：判断当前系统是否仍有未处理任务，包括 trace 中尚未到达的任务和队列中的待处理任务。
     def has_pending_work(self) -> bool:
@@ -163,6 +166,23 @@ class StageARuntime:
     def handle_idle_step(self) -> None:
         self.now += self.idle_step
 
+    # 作用：当已处理任务数达到间隔阈值时，打印一行进度信息。
+    def _maybe_print_progress(self) -> None:
+        resolved = self.metrics.total_success + self.metrics.total_dropped
+        if resolved - self._last_progress_resolved >= self.progress_interval:
+            total = len(self.trace_reader)
+            arrived = self.metrics.total_arrivals
+            success = self.metrics.total_success
+            dropped = self.metrics.total_dropped
+            print(
+                f"[{arrived:>5}/{total}] resolved={resolved}"
+                f"  success={success}  drop={dropped}"
+                f"  (queue={self.metrics.total_queue_timeout}"
+                f" exec={self.metrics.total_exec_timeout})"
+                f"  t={self.now:.3f}s"
+            )
+            self._last_progress_resolved = resolved
+
     # 作用：执行一次完整的运行时循环迭代，便于后续调试或单步测试。
     def step(self) -> None:
         self.advance_if_idle()
@@ -183,6 +203,7 @@ class StageARuntime:
 
         self.ready_queue.remove(task)
         self.execute_task(task, q)
+        self._maybe_print_progress()
 
     # 作用：运行阶段 A 在线原型系统，直到所有任务都被处理完毕，并返回整体统计摘要。
     def run(self):

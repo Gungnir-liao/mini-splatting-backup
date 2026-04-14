@@ -2,8 +2,10 @@
 # -*- coding: utf-8 -*-
 
 import os, sys, time, json, argparse, csv, copy
+from pathlib import Path
 from tqdm import tqdm
 import torch
+from torch import nn
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.abspath(os.path.join(BASE_DIR, '..')))
@@ -103,6 +105,36 @@ def get_mask_by_percentage(imp_score, keep_ratio):
     return mask
 
 
+def build_pruned_gaussians(gaussians, mask_keep):
+    """Create a standalone pruned GaussianModel compatible with the current codebase."""
+    pruned = GaussianModel(gaussians.max_sh_degree)
+    pruned.active_sh_degree = gaussians.active_sh_degree
+
+    mask_keep = mask_keep.bool()
+
+    pruned._xyz = nn.Parameter(gaussians._xyz[mask_keep].detach().clone().requires_grad_(True))
+    pruned._features_dc = nn.Parameter(
+        gaussians._features_dc[mask_keep].detach().clone().requires_grad_(True)
+    )
+    pruned._features_rest = nn.Parameter(
+        gaussians._features_rest[mask_keep].detach().clone().requires_grad_(True)
+    )
+    pruned._scaling = nn.Parameter(
+        gaussians._scaling[mask_keep].detach().clone().requires_grad_(True)
+    )
+    pruned._rotation = nn.Parameter(
+        gaussians._rotation[mask_keep].detach().clone().requires_grad_(True)
+    )
+    pruned._opacity = nn.Parameter(
+        gaussians._opacity[mask_keep].detach().clone().requires_grad_(True)
+    )
+    if gaussians.max_radii2D.numel() == mask_keep.shape[0]:
+        pruned.max_radii2D = gaussians.max_radii2D[mask_keep].detach().clone()
+    else:
+        pruned.max_radii2D = torch.zeros((mask_keep.sum().item(),), device=mask_keep.device)
+    return pruned
+
+
 # =========================================================
 #  Prune + render
 # =========================================================
@@ -111,10 +143,7 @@ def prune_copy_and_render(gaussians, mask_keep, render_fn, cam, pipe, background
     torch.cuda.synchronize()
     t0 = time.time()
 
-    pruned = copy.deepcopy(gaussians)
-
-    # prune_points delete-mask = ~mask_keep
-    pruned.prune_points_rendering_only(~mask_keep)
+    pruned = build_pruned_gaussians(gaussians, mask_keep)
 
     with torch.no_grad():
         out = render_fn(cam, pruned, pipe, background)
@@ -170,6 +199,7 @@ def main():
     parser.add_argument("--viewports_json", type=str, default="viewports.json")
     parser.add_argument("--csv_out", type=str, default="render_times.csv")
     parser.add_argument("--q_list", type=float, nargs="+", default=[50,55,60,65,70,75,80,85,90,95,100])
+    parser.add_argument("--scenes", nargs="+", default=None, help="Optional subset of scene directory names to process.")
 
     args = parser.parse_args()
     safe_state(False)
@@ -181,6 +211,10 @@ def main():
     model_dirs = [os.path.join(args.models_root, d)
                   for d in os.listdir(args.models_root)
                   if os.path.isdir(os.path.join(args.models_root, d))]
+    if args.scenes:
+        selected = set(args.scenes)
+        model_dirs = [d for d in model_dirs if os.path.basename(d) in selected]
+        print(f"Selected scenes: {[os.path.basename(d) for d in model_dirs]}")
 
     renderer = BatchRenderer(args, lp.extract(args), pp.extract(args))
 
@@ -199,17 +233,24 @@ def main():
             metric = "outdoor" if scene_type == "outdoor" else "indoor"
             print(f"Scene type detected: {scene_type} → using metric: {metric}")
 
-            # --- importance
-            imp_score = compute_importance_from_viewports(
-                renderer.gaussians, viewports, renderer.pipe, renderer.background, metric
-            )
+            cache_stem = Path(args.viewports_json).stem
+            imp_cache_path = os.path.join(model_root, f"importance_cache_{cache_stem}.pt")
+            if os.path.exists(imp_cache_path):
+                print(f"Loading cached importance from {imp_cache_path}")
+                imp_score = torch.load(imp_cache_path, map_location="cuda")
+            else:
+                imp_score = compute_importance_from_viewports(
+                    renderer.gaussians, viewports, renderer.pipe, renderer.background, metric
+                )
+                torch.save(imp_score.detach().cpu(), imp_cache_path)
+                print(f"Saved importance cache to {imp_cache_path}")
+                imp_score = imp_score.to(renderer.background.device)
 
             for q in args.q_list:
                 torch.cuda.synchronize()
                 t0 = time.time()
                 mask = get_mask_by_percentage(imp_score, q/100)
-                pruned = copy.deepcopy(renderer.gaussians)
-                pruned.prune_points_rendering_only(~mask)
+                pruned = build_pruned_gaussians(renderer.gaussians, mask)
                 torch.cuda.synchronize()
                 t1 = time.time()
                 t = t1 - t0

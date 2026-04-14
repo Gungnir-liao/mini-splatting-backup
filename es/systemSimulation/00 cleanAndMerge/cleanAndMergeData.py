@@ -3,6 +3,7 @@ import csv
 import pandas as pd
 import numpy as np
 import os
+import argparse
 
 # ================= 配置区域 =================
 # 全局配置
@@ -21,14 +22,14 @@ BASE_QUALITY = 100   # 基准质量 q=100
 PREFERRED_METHOD = "Polynomial" # 仿真器首选的拟合函数类型 (保持数学形式统一)
 # ===========================================
 
-def load_viewports_map():
+def load_viewports_map(viewports_json_path):
     """加载 viewports.json 并构建索引到坐标的映射"""
     print("1. Loading Viewports Data (Coordinates)...")
     try:
-        with open(VIEWPORTS_JSON_PATH, 'r', encoding='utf-8') as f:
+        with open(viewports_json_path, 'r', encoding='utf-8') as f:
             viewports = json.load(f)
     except FileNotFoundError:
-        print(f"Error: {VIEWPORTS_JSON_PATH} not found.")
+        print(f"Error: {viewports_json_path} not found.")
         return None
 
     # 建立 view_index -> position 映射
@@ -41,7 +42,7 @@ def load_viewports_map():
     print(f"   Loaded {len(idx_to_pos)} coordinates.")
     return idx_to_pos
 
-def process_single_model(model_name, model_dir, idx_to_pos):
+def process_single_model(model_name, model_dir, idx_to_pos, output_dir):
     """处理单个模型的数据并导出 CSV"""
     print(f"\n=== Processing Model: {model_name} ===")
     
@@ -50,7 +51,7 @@ def process_single_model(model_name, model_dir, idx_to_pos):
     fitted_params_path = os.path.join(model_dir, FITTED_PARAMS_FILENAME)
     
     # 输出路径 (保存在当前脚本同一目录)
-    output_sim_field_path = f"simulation_cost_field_{model_name}.csv"
+    output_sim_field_path = os.path.join(output_dir, f"simulation_cost_field_{model_name}.csv")
 
     # --- 步骤 2: 计算基准耗时 (Base Cost at q=100) ---
     print(f"   [Step 2] Reading Render Times: {render_csv_path}")
@@ -134,31 +135,46 @@ def process_single_model(model_name, model_dir, idx_to_pos):
     final_df.to_csv(output_sim_field_path, index=False)
     print(f"   ✅ Done! Rows: {len(final_df)}")
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Merge viewport positions, render-time statistics, and fitted g(q) params.")
+    parser.add_argument("--viewports_json", type=str, default=VIEWPORTS_JSON_PATH)
+    parser.add_argument("--models_root", type=str, default=MODELS_ROOT)
+    parser.add_argument("--output_dir", type=str, default=".")
+    parser.add_argument("--scenes", nargs="+", default=None, help="Optional subset of scene directory names to process.")
+    return parser.parse_args()
+
+
 def main():
+    args = parse_args()
+
     # 1. 加载所有模型共用的坐标信息
-    idx_to_pos = load_viewports_map()
+    idx_to_pos = load_viewports_map(args.viewports_json)
     if not idx_to_pos:
         return
 
     # 2. 遍历模型目录
-    if not os.path.exists(MODELS_ROOT):
-        print(f"Error: Models root directory '{MODELS_ROOT}' does not exist.")
-        print("Please edit 'MODELS_ROOT' in the script configuration.")
+    if not os.path.exists(args.models_root):
+        print(f"Error: Models root directory '{args.models_root}' does not exist.")
         return
 
+    os.makedirs(args.output_dir, exist_ok=True)
+
     # 获取所有子目录作为模型列表
-    model_dirs = [d for d in os.listdir(MODELS_ROOT) if os.path.isdir(os.path.join(MODELS_ROOT, d))]
+    model_dirs = [d for d in os.listdir(args.models_root) if os.path.isdir(os.path.join(args.models_root, d))]
+    if args.scenes:
+        selected = set(args.scenes)
+        model_dirs = [d for d in model_dirs if d in selected]
     
     if not model_dirs:
-        print(f"No subdirectories found in {MODELS_ROOT}.")
+        print(f"No matching subdirectories found in {args.models_root}.")
         return
 
     print(f"\nFound {len(model_dirs)} models: {model_dirs}")
 
     # 3. 对每个模型执行处理
     for model_name in model_dirs:
-        model_dir = os.path.join(MODELS_ROOT, model_name)
-        process_single_model(model_name, model_dir, idx_to_pos)
+        model_dir = os.path.join(args.models_root, model_name)
+        process_single_model(model_name, model_dir, idx_to_pos, args.output_dir)
 
 if __name__ == "__main__":
     try:

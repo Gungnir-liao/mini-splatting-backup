@@ -74,6 +74,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--planner_interval", type=float, default=1.0, help="Slow-loop planning interval in seconds.")
     parser.add_argument("--idle_step", type=float, default=1e-3, help="Logical time step when no task is executable.")
+    parser.add_argument("--progress_interval", type=int, default=100, help="Print progress every N resolved tasks.")
     parser.add_argument("--history_window", type=float, default=1.0, help="Admission-control history window in seconds.")
     parser.add_argument("--deadline_buffer", type=float, default=0.0, help="Safety margin before deadline.")
     parser.add_argument("--session_timeout", type=float, default=3.0, help="Inactive-session timeout in seconds.")
@@ -187,6 +188,7 @@ def build_runtime(args: argparse.Namespace) -> StageARuntime:
         metrics=metrics,
         idle_step=args.idle_step,
         planner_interval=args.planner_interval,
+        progress_interval=args.progress_interval,
     )
     return runtime
 

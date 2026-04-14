@@ -35,3 +35,10 @@ es/models/
 
 # Generated runtime outputs
 edge_gs_runtime/outputs/
+
+# Large generated data files (re-generatable via pipeline scripts)
+es/viewports_20260105.json
+es/systemSimulation/pilot_cost_fields/
+es/Training_SR/eval_sr_all_scenes/
+render_times.csv
+gs/Untitled
