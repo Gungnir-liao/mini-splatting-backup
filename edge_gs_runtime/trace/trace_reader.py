@@ -133,6 +133,12 @@ class TraceReader:
             ddl_window = deadline_ts - arrival_ts
             demand_fps = round(1.0 / ddl_window) if ddl_window > 1e-9 else None
 
+        real_cost: Optional[float] = (
+            float(row["Real_Cost"]) * self.config.time_scale
+            if "Real_Cost" in row and pd.notna(row.get("Real_Cost"))
+            else None
+        )
+
         return RenderTask(
             task_id=task_id,
             user_id=user_id,
@@ -143,6 +149,7 @@ class TraceReader:
             pred_cost=pred_cost,
             g_params=g_params,
             demand_fps=demand_fps,
+            real_cost=real_cost,
         )
 
     # 作用：重置内部游标，使读取器重新回到 trace 起点。

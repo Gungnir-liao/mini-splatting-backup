@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -40,6 +40,47 @@ class SceneCostField(object):
         weights = 1.0 / dists
         weights /= np.sum(weights)
         return np.dot(weights, self.values[idxs])
+
+
+def load_cost_field_waypoints(field: "SceneCostField") -> List[np.ndarray]:
+    # 从 cost field 按 view_index 排序取相机位置：坐标系与 viewports_json / KDTree 一致。
+    df = field.df
+    if "view_index" in df.columns:
+        df = df.sort_values("view_index")
+    return [row[["x", "y", "z"]].to_numpy(dtype=float) for _, row in df.iterrows()]
+
+
+def generate_colmap_trajectory(
+    waypoints: List[np.ndarray],
+    fps: int,
+    duration: float,
+    rng: np.random.RandomState,
+    segment_fps: float = 5.0,
+) -> Tuple[List[np.ndarray], List[str]]:
+    num_frames = int(duration * fps)
+    if num_frames <= 0 or len(waypoints) < 2:
+        return [], []
+
+    # 每个 waypoint 段占多少帧（控制虚拟移速）
+    frames_per_segment = max(1, int(round(fps / segment_fps)))
+
+    # 随机起始，让多个用户在同一场景的不同位置出发
+    start_idx = rng.randint(0, len(waypoints))
+
+    positions: List[np.ndarray] = []
+    modes: List[str] = []
+
+    for frame_i in range(num_frames):
+        segment_i = frame_i // frames_per_segment
+        t = (frame_i % frames_per_segment) / frames_per_segment  # [0, 1)
+
+        wp_a = waypoints[(start_idx + segment_i) % len(waypoints)]
+        wp_b = waypoints[(start_idx + segment_i + 1) % len(waypoints)]
+        pos = (1.0 - t) * wp_a + t * wp_b
+        positions.append(pos)
+        modes.append("Real")
+
+    return positions, modes
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -99,6 +140,20 @@ def build_arg_parser() -> argparse.ArgumentParser:
         type=str,
         default=None,
         help="Optional explicit trace filename. Default is derived from scenes.",
+    )
+    parser.add_argument(
+        "--dataset_root",
+        type=str,
+        default=None,
+        help="Root dir of COLMAP datasets, e.g. gs/dataset. "
+             "Expects {root}/{scene}/sparse/0/images.bin. "
+             "Falls back to random walk if not provided or file missing.",
+    )
+    parser.add_argument(
+        "--segment_fps",
+        type=float,
+        default=5.0,
+        help="Waypoints visited per second in COLMAP trajectory mode (controls virtual camera speed).",
     )
     return parser
 
@@ -204,12 +259,22 @@ def main() -> None:
         else:
             raise ValueError("Unsupported mode: %s" % args.mode)
 
-        positions, modes = generate_alternating_random_walk(
-            rng=rng,
-            field=scene_fields[scene],
-            duration=end_time - start_time,
-            fps=fps,
-        )
+        if args.dataset_root:
+            waypoints = load_cost_field_waypoints(scene_fields[scene])
+            positions, modes = generate_colmap_trajectory(
+                waypoints=waypoints,
+                fps=fps,
+                duration=end_time - start_time,
+                rng=rng,
+                segment_fps=args.segment_fps,
+            )
+        else:
+            positions, modes = generate_alternating_random_walk(
+                rng=rng,
+                field=scene_fields[scene],
+                duration=end_time - start_time,
+                fps=fps,
+            )
         arrival_ts = start_time + rng.uniform(0, 1.0 / fps)
 
         for frame_id, (pos, motion_mode) in enumerate(zip(positions, modes)):

@@ -69,9 +69,10 @@ class StageARuntime:
         ingested: List[RenderTask] = []
 
         for task in arrivals:
-            pred_cost, g_params = self.cost_model.predict(task.scene_id, task.viewpoint)
-            task.pred_cost = pred_cost
-            task.g_params = g_params
+            if task.pred_cost is None or task.pred_cost <= 0:
+                pred_cost, g_params = self.cost_model.predict(task.scene_id, task.viewpoint)
+                task.pred_cost = pred_cost
+                task.g_params = g_params
 
             self.ready_queue.append(task)
             self.session_registry.touch(

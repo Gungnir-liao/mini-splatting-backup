@@ -40,6 +40,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--events_path", type=str, default="outputs/logs/events.json", help="Path to save event log JSON.")
 
     parser.add_argument("--dry_run", action="store_true", help="Run without real rendering pipeline.")
+    parser.add_argument("--save_frames", action="store_true", help="Save rendered frames to disk (debug only; off by default).")
     parser.add_argument(
         "--render_backend",
         type=str,
@@ -54,23 +55,18 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Root directory containing per-scene trained models for real rendering.",
     )
     parser.add_argument(
-        "--dataset_root",
-        type=str,
-        default=str(Path(__file__).resolve().parents[2] / "gs" / "dataset"),
-        help="Root directory containing per-scene datasets for real rendering.",
-    )
-    parser.add_argument(
         "--iteration",
         type=int,
         default=-1,
         help="Model iteration to load for real rendering. -1 means latest iteration.",
     )
     parser.add_argument(
-        "--camera_split",
+        "--viewports_json",
         type=str,
-        default="test",
-        choices=["auto", "test", "train"],
-        help="Which camera split to draw real-render viewpoints from.",
+        default=None,
+        help="Path to viewports JSON (e.g. viewports_20260105.json). "
+             "Required for real rendering; enables KDTree-based viewpoint lookup "
+             "so each frame is rendered from the position recorded in the trace.",
     )
     parser.add_argument("--planner_interval", type=float, default=1.0, help="Slow-loop planning interval in seconds.")
     parser.add_argument("--idle_step", type=float, default=1e-3, help="Logical time step when no task is executable.")
@@ -79,11 +75,17 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--deadline_buffer", type=float, default=0.0, help="Safety margin before deadline.")
     parser.add_argument("--session_timeout", type=float, default=3.0, help="Inactive-session timeout in seconds.")
 
-    parser.add_argument("--default_fps", type=float, default=30.0, help="Default target FPS before degradation.")
+    parser.add_argument("--default_fps", type=float, default=120.0, help="Fallback FPS used only when the trace carries no fps column and D-R inference fails.")
     parser.add_argument("--default_q", type=float, default=1.0, help="Default target quality before degradation.")
     parser.add_argument("--min_fps", type=float, default=10.0, help="Minimum allowed target FPS.")
     parser.add_argument("--min_q", type=float, default=0.3, help="Minimum allowed target quality.")
     parser.add_argument("--load_budget", type=float, default=1.0, help="Global single-GPU planning budget.")
+    parser.add_argument(
+        "--fps_options",
+        type=float, nargs="+",
+        default=[24.0, 30.0, 45.0, 50.0, 60.0, 90.0],
+        help="Discrete FPS levels the planner can assign. Must cover the max demand_fps in the trace.",
+    )
 
     return parser
 
@@ -121,6 +123,7 @@ def build_planner(args: argparse.Namespace) -> QoSPlanner:
         default_q=args.default_q,
         min_fps=args.min_fps,
         min_q=args.min_q,
+        fps_options=args.fps_options,
         load_budget=args.load_budget,
     )
 
@@ -151,11 +154,10 @@ def build_gpu_worker(args: argparse.Namespace) -> GPUWorker:
 
         scene_repo = ESSceneRepository(
             model_root=args.model_root,
-            dataset_root=args.dataset_root,
             iteration=args.iteration,
-            camera_split=args.camera_split,
+            viewports_json=args.viewports_json,
         )
-        render_adapter = ESRenderAdapter(device=args.device)
+        render_adapter = ESRenderAdapter(device=args.device, save_frames=args.save_frames)
 
     return GPUWorker(
         device=args.device,

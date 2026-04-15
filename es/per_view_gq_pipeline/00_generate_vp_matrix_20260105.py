@@ -53,23 +53,29 @@ def build_view_matrix_via_compose(eye, center, up):
     translation[1, 3] = eye[1]
     translation[2, 3] = eye[2]
 
+    # model: camera-to-world (columns = camera right/up/forward in world, last col = eye)
     model = translation @ rotation
     view_row = np.linalg.inv(model)
     view_colmajor_list = view_row.flatten(order="F").tolist()
-    return view_row, view_colmajor_list
+    # extrinsicMatrix stored row-major (matches JS viewer convention)
+    extrinsic_rowmajor_list = model.flatten(order="C").tolist()
+    return view_row, view_colmajor_list, extrinsic_rowmajor_list
 
 
 class ViewportGenerator:
     def __init__(self):
+        # Matches the JS viewer orbit settings used during real trace recording:
+        #   center: Vector3(0,0,0)  xAxis: (1,0,0)  yAxis: (0,-1,0)  zAxis: (0,0,1)
+        # yAxis pointing down (-Y) matches the 3DGS/WebGL camera convention.
         self._orbit = {
-            "radius": 3.0,
+            "radius": 4.0,
             "theta": 0.0,
             "phi": 0.0,
             "roll": 0.0,
-            "center": np.array([-0.113792, 1.26448, 0.421548]),
-            "xAxis": np.array([-0.44662, -0.10908, 0.88805]),
-            "yAxis": np.array([-0.110094, -0.978298, -0.175533]),
-            "zAxis": np.array([-0.887924, 0.176165, -0.424919]),
+            "center": np.array([0.0, 0.0, 0.0]),
+            "xAxis": np.array([1.0, 0.0, 0.0]),
+            "yAxis": np.array([0.0, -1.0, 0.0]),
+            "zAxis": np.array([0.0, 0.0, 1.0]),
             "move": np.array([0.0, 0.0, 0.0]),
         }
 
@@ -100,7 +106,7 @@ class ViewportGenerator:
         eye = center + dir_rot * orbit_state["radius"]
         up = q_roll.rotate(orbit_state["yAxis"])
 
-        view_row_mat, view_colmajor = build_view_matrix_via_compose(eye, center, up)
+        view_row_mat, view_colmajor, extrinsic_rowmajor = build_view_matrix_via_compose(eye, center, up)
         proj_row = build_projection_matrix_js(
             self.camera_param["fov"],
             self.camera_param["aspect"],
@@ -132,6 +138,7 @@ class ViewportGenerator:
             "keep_alive": 1,
             "view_matrix": view_colmajor,
             "view_projection_matrix": viewproj_colmajor,
+            "extrinsicMatrix": extrinsic_rowmajor,
         }
 
 

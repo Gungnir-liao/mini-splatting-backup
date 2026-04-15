@@ -90,11 +90,12 @@ class GPUWorker:
             "user_id": task.user_id,
         }
 
-    # 作用：估计 dry_run 模式下的执行时长，用于在真实渲染未接入前先打通系统主链路。
-    def estimate_dry_run_duration(self, task: RenderTask, q: float) -> float:
+    # 作用：模拟 dry_run 模式下的真实执行耗时，基于 real_cost（带预测误差）计算。
+    def simulate_execution_duration(self, task: RenderTask, q: float) -> float:
         a, b, c = task.g_params
         scale = max(a * (q ** 2) + b * q + c, 1e-6)
-        return float(task.pred_cost) * scale
+        base = task.real_cost if task.real_cost is not None else task.pred_cost
+        return float(base) * scale
 
     # 作用：读取当前 GPU 的显存占用，若运行环境不支持则返回 None。
     def current_vram_mb(self) -> Optional[float]:
@@ -158,7 +159,7 @@ class GPUWorker:
 
     # 作用：在 dry_run 模式下伪造一次执行结果，使运行时主循环和调度逻辑可以先独立联调。
     def execute_dry_run(self, task: RenderTask, q: float, now: float) -> Dict[str, Any]:
-        actual_duration = self.estimate_dry_run_duration(task, q)
+        actual_duration = self.simulate_execution_duration(task, q)
         frame_path = self.output_dir / f"user_{task.user_id:03d}_task_{task.task_id:06d}_dryrun.txt"
         frame_path.write_text(
             (

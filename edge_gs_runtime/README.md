@@ -227,32 +227,27 @@ PYTHONPATH=. /root/miniforge3/envs/mini_splatting/bin/python apps/run_stage_a.py
 
 ## 真实渲染
 
-`GPUWorker` 现在已经支持通过 ES 适配层接入真实渲染：
-
 ```bash
 cd /root/3dgs-streaming/mini-splatting/edge_gs_runtime
 PYTHONPATH=. /root/miniforge3/envs/mini_splatting/bin/python apps/run_stage_a.py \
-  --trace_csv sample_inputs/generated/trace_runtime_from_systemsim.csv \
-  --cost_csv sample_inputs/generated/cost_runtime_from_trace_means.csv \
+  --trace_csv sample_inputs/feasibility/trace_runtime_bicycle_room.csv \
+  --cost_csv sample_inputs/feasibility/cost_runtime_bicycle_room.csv \
   --model_root /root/3dgs-streaming/mini-splatting/ms/eval \
-  --dataset_root /root/3dgs-streaming/mini-splatting/gs/dataset \
-  --camera_split test \
-  --summary_path outputs/generated_real/summary.json \
-  --events_path outputs/generated_real/events.json
+  --viewports_json /root/3dgs-streaming/mini-splatting/es/viewports_20260105.json \
+  --summary_path outputs/real_render_viewpoint/summary.json \
+  --events_path outputs/real_render_viewpoint/events.json
 ```
 
-当前真实渲染适配层做的是：
+真实渲染适配层（`worker/es_render_adapter.py`）：
 
-- 按 `scene_id` 加载模型目录下的 `cfg_args`
-- 用 `Scene + GaussianModel + gaussian_renderer.render` 执行真实渲染
-- 用 `task_id % num_cameras` 稳定地选一个相机视角
+- 直接从 `model_root/{scene_id}/point_cloud/iteration_N/point_cloud.ply` 加载高斯点云，**不再依赖数据集目录**
+- 给定 trace 中每帧的相机位置 `(x, y, z)`，在 `viewports_json` 的 KDTree 中查找最近视口，取其 `view_matrix` / `fov` / `znear` / `zfar` 构造 `MiniCam`，使渲染视角与用户真实轨迹对应
+- 渲染结果（`torch.Tensor`）在实际系统中应交给压缩编码推流服务；当前 `save_image` 仅为 debug 落盘，不计入渲染耗时
 
 注意：
 
-- 真实渲染需要 CUDA 环境
-- 当前 trace 还没有完整的真实视点矩阵，所以真实渲染先采用“离散相机索引映射”方案接通执行链路
-- 在当前这台机器上，如果 `torch.cuda.is_available()` 为 `False`，真实渲染会直接报清晰错误并退出
-
+- 真实渲染需要 CUDA 环境，无 GPU 时直接报错退出
+- `--viewports_json` 不传时真实渲染会报错（无法解析相机视角）
 ## 输出说明
 
 - `summary.json`: 成功率、丢帧率、平均排队时延、平均执行时长等
